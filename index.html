@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Billing Calculator</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            text-align: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 500px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        input[type="text"], input[type="number"] {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            background-color: #4285F4; /* Google blue */
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #357AE8; /* Darker blue on hover */
+        }
+        h1 {
+            color: #333;
+            font-size: 24px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f1f1f1;
+        }
+        footer {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+        /* Media Query for mobile devices */
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 20px; /* Smaller font size on mobile */
+            }
+            input[type="text"], input[type="number"], button {
+                font-size: 14px; /* Smaller font size on inputs and buttons */
+                padding: 8px; /* Reduced padding for smaller buttons and inputs */
+            }
+            .container {
+                padding: 15px; /* Adjust container padding */
+            }
+        }
+        /* Print Styles */
+        @media print {
+            button {
+                display: none; /* Hide buttons when printing */
+            }
+            #billingTable {
+                margin-top: 0;
+            }
+            footer {
+                display: none; /* Hide footer when printing */
+            }
+            body {
+                text-align: left; /* Align text to the left for printing */
+            }
+            h1 {
+                text-align: center; /* Center the bill title */
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Billing Calculator</h1>
+        <div id="dateDisplay"></div>
+        <input type="text" id="itemName" placeholder="Item Name">
+        <input type="number" id="itemPrice" placeholder="Item Price" min="0" step="0.01">
+        
+        <!-- GST Radio Buttons -->
+        <div>
+            <label><input type="radio" name="gst" value="0" checked> Non-GST</label>
+            <label><input type="radio" name="gst" value="0.05"> Food (5% GST)</label>
+            <label><input type="radio" name="gst" value="0.12"> Dress (12% GST)</label>
+            <label><input type="radio" name="gst" value="0.18"> Electronic (18% GST)</label>
+        </div>
+        
+        <button id="addItemButton">Add Item</button>
+
+        <table id="billingTable">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Price</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <input type="number" id="discountAmount" placeholder="Discount Amount" value="0">
+        <button id="calculateButton">Calculate Total</button>
+        <h2 id="totalAmount">Total: ₹0.00</h2>
+        <h3 id="discountApplied" style="display:none;">Discount Applied: -₹0.00</h3>
+        
+        <input type="number" id="payAmount" placeholder="Pay Amount" value="0" min="0" step="0.01">
+        <h3 id="remainingAmount">Remaining Amount: ₹0.00</h3>
+        
+        <button id="printButton">Print Bill</button>
+    </div>
+
+    <footer>
+        &copy; 2024 All Rights Reserved to Mr. Shubham Jathar
+    </footer>
+
+    <script>
+    $(document).ready(function() {
+        let items = [];
+
+        // Display today's date
+        const today = new Date();
+        $('#dateDisplay').text(`Date: ${today.toLocaleDateString()}`);
+
+        $('#addItemButton').click(function() {
+            const itemName = $('#itemName').val().trim();
+            const itemPrice = parseFloat($('#itemPrice').val()) || 0;
+
+            if (itemName && itemPrice > 0) {
+                const gstRate = parseFloat($('input[name="gst"]:checked').val());
+                const gstAmount = itemPrice * gstRate;
+                const totalPrice = itemPrice + gstAmount;
+
+                items.push({ name: itemName, price: totalPrice, gst: gstAmount });
+                $('#billingTable tbody').append(`<tr><td>${itemName}</td><td>₹${totalPrice.toFixed(2)}</td></tr>`);
+                $('#itemName').val('');
+                $('#itemPrice').val('');
+            } else {
+                alert('Please enter a valid item name and price.');
+            }
+        });
+
+        $('#calculateButton').click(function() {
+            const discountAmount = parseFloat($('#discountAmount').val()) || 0;
+            const total = items.reduce((sum, item) => sum + item.price, 0) - discountAmount;
+            $('#totalAmount').text(`Total: ₹${total.toFixed(2)}`);
+            $('#discountApplied').text(`Discount Applied: -₹${discountAmount.toFixed(2)}`).show();
+
+            // Update remaining amount
+            updateRemainingAmount(total);
+        });
+
+        $('#payAmount').on('input', function() {
+            const total = parseFloat($('#totalAmount').text().replace('Total: ₹', '')) || 0;
+            updateRemainingAmount(total);
+        });
+
+        function updateRemainingAmount(total) {
+            const payAmount = parseFloat($('#payAmount').val()) || 0;
+            const remaining = total - payAmount;
+            $('#remainingAmount').text(`Remaining Amount: ₹${remaining.toFixed(2)}`);
+        }
+
+        $('#printButton').click(function() {
+            const discountAmount = parseFloat($('#discountAmount').val()) || 0;
+            const total = parseFloat($('#totalAmount').text().replace('Total: ₹', '')) || 0;
+            const gstSelected = $('input[name="gst"]:checked').val();
+            const gstLabel = gstSelected == 0 ? 'without GST' : 'with GST';
+
+            const printContent = `
+                <h1>Bill</h1>
+                <h2>Date: ${today.toLocaleDateString()}</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${items.map(item => `<tr><td>${item.name}</td><td>₹${item.price.toFixed(2)}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+                <h2>Total: ₹${total.toFixed(2)} (${gstLabel})</h2>
+                <h3>Discount Applied: -₹${discountAmount.toFixed(2)}</h3>
+                <h3>Remaining Amount: ₹${$('#remainingAmount').text().replace('Remaining Amount: ₹', '')}</h3>
+            `;
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>Print Bill</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; text-align: left; }
+                        table { width: 100%; border-collapse: collapse; }
+                        th, td { border: 1px solid #ccc; padding: 8px; }
+                        th { background-color: #f1f1f1; }
+                        h1, h2, h3 { text-align: center; }
+                    </style>
+                </head>
+                <body>
+                    ${printContent}
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
+        });
+    });
+    </script>
+
+</body>
+</html>
